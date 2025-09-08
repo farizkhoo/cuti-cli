@@ -53,7 +53,7 @@ func (s *Scraper) Close() {
 	s.cancel()
 }
 
-// FetchState scrapes one state (or national) page
+// FetchState scrapes one state page (national excluded)
 func (s *Scraper) FetchState(state string, year int) ([]Holiday, error) {
 	url := buildURL(state, year)
 	log.Printf("🌐 Fetching %s (%d) — %s", state, year, url)
@@ -107,9 +107,7 @@ func (s *Scraper) FetchState(state string, year int) ([]Holiday, error) {
 }
 
 func buildURL(state string, year int) string {
-	if state == "national" {
-		return fmt.Sprintf("https://publicholidays.com.my/%d-dates/", year)
-	}
+	// explicitly skip national
 	return fmt.Sprintf("https://publicholidays.com.my/%s/%d-dates/", state, year)
 }
 
@@ -144,28 +142,33 @@ func normalizeState(st string) string {
 }
 
 func Consolidate(holidays []Holiday) []Holiday {
-	combined := map[string]*Holiday{}
+	merged := make(map[string]Holiday)
 
 	for _, h := range holidays {
+		// Key by date+name (ignore "day" since states may observe on diff days)
 		key := h.Date + "|" + h.Name
-		if existing, ok := combined[key]; ok {
+
+		if existing, ok := merged[key]; ok {
 			existing.States = append(existing.States, h.States...)
+			existing.States = unique(existing.States)
+			merged[key] = existing
 		} else {
-			copyH := h
-			combined[key] = &copyH
+			h.States = unique(h.States)
+			merged[key] = h
 		}
 	}
 
-	var result []Holiday
-	for _, h := range combined {
-		h.States = unique(h.States)
-		sort.Strings(h.States)
-		result = append(result, *h)
+	// Convert back to slice
+	result := make([]Holiday, 0, len(merged))
+	for _, h := range merged {
+		result = append(result, h)
 	}
 
+	// Sort by date for readability
 	sort.Slice(result, func(i, j int) bool {
 		return result[i].Date < result[j].Date
 	})
+
 	return result
 }
 

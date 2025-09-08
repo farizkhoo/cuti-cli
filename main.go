@@ -17,9 +17,8 @@ func main() {
 	headless := flag.Bool("headless", false, "Run Chrome in headless mode")
 	flag.Parse()
 
-	// States + national
+	// States only (national excluded)
 	states := []string{
-		"national",
 		"johor", "kedah", "kelantan", "kuala-lumpur",
 		"labuan", "melaka", "negeri-sembilan", "pahang",
 		"penang", "perak", "perlis", "putrajaya",
