@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/csv"
 	"flag"
+	"fmt"
 	"log"
 	"os"
 	"strings"
@@ -44,7 +45,7 @@ func main() {
 
 	switch strings.ToLower(*format) {
 	case "json":
-		filename := *out + ".json"
+		filename := fmt.Sprintf("%s-%d.json", *out, *year)
 		if err := scraper.SaveJSON(filename, final); err != nil {
 			log.Fatal(err)
 		}
