@@ -66,22 +66,31 @@ func (s *Scraper) FetchState(state string, year int) ([]Holiday, error) {
 	err := chromedp.Run(ctx,
 		chromedp.Navigate(url),
 		chromedp.WaitVisible("table.publicholidays", chromedp.ByQuery),
-		chromedp.Evaluate(`
+		chromedp.Evaluate(fmt.Sprintf(`
 			(() => {
-				const trs = Array.from(document.querySelectorAll("table.publicholidays tbody tr"));
+				// Find the header for the requested year
+				const yearHeader = Array.from(document.querySelectorAll("h2"))
+					.find(h => h.innerText.includes("%d"));
+				if (!yearHeader) return [];
+
+				// Table immediately after the h2
+				const table = yearHeader.nextElementSibling;
+				if (!table || !table.classList.contains("publicholidays")) return [];
+
+				const trs = Array.from(table.querySelectorAll("tbody tr"));
 				return trs.map(tr => {
 					const tds = Array.from(tr.querySelectorAll("td")).map(td => td.innerText.trim());
 					return tds;
 				});
 			})()
-		`, &rows),
+		`, year), &rows),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("error loading %s: %w", state, err)
 	}
 
 	if len(rows) == 0 {
-		log.Printf("⚠️  No rows found for %s; page may have changed", state)
+		log.Printf("⚠️  No rows found for %s in %d; page may have changed", state, year)
 		return nil, nil
 	}
 
