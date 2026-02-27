@@ -2,6 +2,7 @@ package scraper
 
 import (
 	"context"
+	"encoding/csv"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -22,8 +23,9 @@ type Holiday struct {
 }
 
 type Scraper struct {
-	ctx    context.Context
-	cancel context.CancelFunc
+	ctx         context.Context
+	cancel      context.CancelFunc
+	allocCancel context.CancelFunc
 }
 
 // NewScraper initializes chromedp with sensible defaults
@@ -34,7 +36,7 @@ func NewScraper(headless bool) *Scraper {
 		chromedp.Flag("blink-settings", "imagesEnabled=false"),
 	)
 
-	allocCtx, _ := chromedp.NewExecAllocator(context.Background(), opts...)
+	allocCtx, allocCancel := chromedp.NewExecAllocator(context.Background(), opts...)
 	ctx, cancel := chromedp.NewContext(allocCtx)
 
 	// Block heavy resources
@@ -46,17 +48,17 @@ func NewScraper(headless bool) *Scraper {
 		}),
 	)
 
-	return &Scraper{ctx: ctx, cancel: cancel}
+	return &Scraper{ctx: ctx, cancel: cancel, allocCancel: allocCancel}
 }
 
 func (s *Scraper) Close() {
 	s.cancel()
+	s.allocCancel()
 }
 
 // FetchState scrapes one state page (national excluded)
 func (s *Scraper) FetchState(state string, year int) ([]Holiday, error) {
 	url := buildURL(state, year)
-	log.Printf("🌐 Fetching %s (%d) — %s", state, year, url)
 
 	// per-page timeout
 	ctx, cancel := context.WithTimeout(s.ctx, 20*time.Second)
@@ -99,7 +101,11 @@ func (s *Scraper) FetchState(state string, year int) ([]Holiday, error) {
 		if len(r) < 3 {
 			continue
 		}
-		dateStr := normalizeDate(r[0], year)
+		dateStr, err := normalizeDate(r[0], year)
+		if err != nil {
+			log.Printf("⚠️  Skipping row with unparseable date %q in %s (%d): %v", r[0], state, year, err)
+			continue
+		}
 		day := r[1]
 		name := r[2]
 
@@ -120,17 +126,15 @@ func buildURL(state string, year int) string {
 	return fmt.Sprintf("https://publicholidays.com.my/%s/%d-dates/", state, year)
 }
 
-func normalizeDate(dateStr string, year int) string {
+func normalizeDate(dateStr string, year int) (string, error) {
 	// Example: "1 Jan", "2 February", etc.
 	layouts := []string{"2 Jan", "2 January"}
 	for _, layout := range layouts {
 		if t, err := time.Parse(layout, dateStr); err == nil {
-			return fmt.Sprintf("%d-%02d-%02d", year, int(t.Month()), t.Day())
+			return fmt.Sprintf("%d-%02d-%02d", year, int(t.Month()), t.Day()), nil
 		}
 	}
-	// fallback: keep as-is
-	log.Printf("⚠️  Failed to parse date: %s", dateStr)
-	return fmt.Sprintf("%d-%s", year, strings.ReplaceAll(dateStr, " ", "-"))
+	return "", fmt.Errorf("unrecognised date format: %q", dateStr)
 }
 
 func normalizeState(st string) string {
@@ -200,4 +204,29 @@ func SaveJSON(path string, holidays []Holiday) error {
 		return err
 	}
 	return os.WriteFile(path, data, 0644)
+}
+
+// Save to CSV
+func SaveCSV(path string, holidays []Holiday) error {
+	f, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	w := csv.NewWriter(f)
+	defer w.Flush()
+
+	if err := w.Write([]string{"Date", "Day", "Name", "States"}); err != nil {
+		return err
+	}
+
+	for _, h := range holidays {
+		row := []string{h.Date, h.Day, h.Name, strings.Join(h.States, ";")}
+		if err := w.Write(row); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

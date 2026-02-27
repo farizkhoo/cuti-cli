@@ -1,11 +1,9 @@
 package main
 
 import (
-	"encoding/csv"
 	"flag"
 	"fmt"
 	"log"
-	"os"
 	"strings"
 
 	"github.com/farizkhoo/cuti-cli/scraper"
@@ -52,8 +50,8 @@ func main() {
 		log.Printf("✅ Holidays written to %s", filename)
 
 	case "csv":
-		filename := *out + ".csv"
-		if err := saveCSV(filename, final); err != nil {
+		filename := fmt.Sprintf("%s-%d.csv", *out, *year)
+		if err := scraper.SaveCSV(filename, final); err != nil {
 			log.Fatal(err)
 		}
 		log.Printf("✅ Holidays written to %s", filename)
@@ -63,27 +61,3 @@ func main() {
 	}
 }
 
-func saveCSV(path string, holidays []scraper.Holiday) error {
-	f, err := os.Create(path)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	w := csv.NewWriter(f)
-	defer w.Flush()
-
-	// Header
-	if err := w.Write([]string{"Date", "Day", "Name", "States"}); err != nil {
-		return err
-	}
-
-	for _, h := range holidays {
-		row := []string{h.Date, h.Day, h.Name, strings.Join(h.States, ";")}
-		if err := w.Write(row); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
