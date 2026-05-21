@@ -27,6 +27,10 @@ go.work.sum
 # env file
 .env
 
+# Scraped holiday data — generated output, not source
+holidays*.json
+holidays*.csv
+
 # Editor/IDE
 # .idea/
 # .vscode/
