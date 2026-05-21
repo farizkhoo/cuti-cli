@@ -16,6 +16,11 @@ func main() {
 	headless := flag.Bool("headless", false, "Run Chrome in headless mode")
 	flag.Parse()
 
+	normalizedFormat := strings.ToLower(*format)
+	if normalizedFormat != "json" && normalizedFormat != "csv" {
+		log.Fatalf("Unsupported format: %s (expected json or csv)", *format)
+	}
+
 	// States only (national excluded)
 	states := []string{
 		"johor", "kedah", "kelantan", "kuala-lumpur",
@@ -41,23 +46,17 @@ func main() {
 
 	final := scraper.Consolidate(all)
 
-	switch strings.ToLower(*format) {
+	filename := fmt.Sprintf("%s-%d.%s", *out, *year, normalizedFormat)
+	var saveErr error
+	switch normalizedFormat {
 	case "json":
-		filename := fmt.Sprintf("%s-%d.json", *out, *year)
-		if err := scraper.SaveJSON(filename, final); err != nil {
-			log.Fatal(err)
-		}
-		log.Printf("✅ Holidays written to %s", filename)
-
+		saveErr = scraper.SaveJSON(filename, final)
 	case "csv":
-		filename := fmt.Sprintf("%s-%d.csv", *out, *year)
-		if err := scraper.SaveCSV(filename, final); err != nil {
-			log.Fatal(err)
-		}
-		log.Printf("✅ Holidays written to %s", filename)
-
-	default:
-		log.Fatalf("Unsupported format: %s", *format)
+		saveErr = scraper.SaveCSV(filename, final)
 	}
+	if saveErr != nil {
+		log.Fatal(saveErr)
+	}
+	log.Printf("✅ Holidays written to %s", filename)
 }
 
