@@ -16,7 +16,7 @@ sudo apt install -y ./google-chrome-stable_current_amd64.deb
 google-chrome --version
 ```
 
-> **Note:** On WSL, you don't need a display server. Run the tool with `-headless=true` (the default for unattended runs). No GUI is required.
+> **Note:** On WSL, you don't need a display server. Pass `-headless=true` for unattended runs (the flag defaults to `false`, which opens a visible Chrome window).
 
 # Usage
 
@@ -32,4 +32,7 @@ An overview of the available flags:
 ## Example
 
 ```sh
-go run main.go -format json -out holidays -year 2025
+go run main.go -format json -out holidays -year 2025 -headless=true
+```
+
+Output is written to `<out>-<year>.<format>`, e.g. `holidays-2025.json`.

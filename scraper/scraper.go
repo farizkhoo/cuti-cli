@@ -147,9 +147,6 @@ func normalizeState(st string) string {
 		return "melaka"
 	case "kualalumpur":
 		return "kuala-lumpur"
-	case "putrajayaand-selangor", "putrajaya-selangor":
-		// handled elsewhere in consolidation
-		return "putrajaya"
 	}
 	return st
 }
